@@ -1,0 +1,321 @@
+-- This SQL query retrieves information about films, 
+-- including the film ID, title, length, category name, 
+-- and the average length of films within the same category. 
+
+SELECT
+  f.film_id,
+  f.title,
+  f.length,
+  category.name,
+  ROUND(AVG(length) OVER(PARTITION BY category.name), 2) as avg_length_film_cat
+FROM 
+  film as f
+JOIN 
+  film_category as fc ON fc.film_id = f.film_id
+JOIN 
+  category ON category.category_id = fc.category_id
+ORDER BY f.film_id;
+
+
+
+-- This SQL query retrieves information about payments, 
+-- including all columns from payment table, 
+-- and the no of payments made by customer with specific amount.
+
+SELECT 
+*,
+COUNT(*) OVER(PARTITION BY customer_id, amount) AS no_payments_with_that_amount
+FROM payment;
+
+
+
+-- This SQL query retrieves information about payments, 
+-- including all columns from payment table,
+-- and running_total column which represents the cumulative sum 
+-- of the amount column, calculated in an ordered manner based on the payment_date. 
+-- This type of query is often used to analyze trends or patterns 
+-- in cumulative amounts over time.
+
+SELECT
+*,
+SUM(amount) OVER(ORDER BY payment_date) as running_total
+FROM payment;
+
+
+
+SELECT * FROM
+(SELECT
+DISTINCT cl.name,
+cl.country,
+COUNT(*),
+RANK() OVER(PARTITION BY cl.country ORDER BY COUNT(*)) as rank
+FROM customer_list as cl
+JOIN payment as p
+ON id=customer_id
+GROUP BY cl.name, cl.country
+ORDER BY country)
+WHERE rank IN (1,2,3)
+ORDER BY rank;
+
+
+
+SELECT
+*,
+LAG(sum_amount) OVER(ORDER BY date) as previous_day,
+sum_amount - LAG(sum_amount) OVER(ORDER BY date),
+(LEAD(sum_amount) OVER(ORDER BY date) / sum_amount) * 100 as perc_growth
+FROM
+(SELECT
+SUM(amount) as sum_amount,
+DATE(payment_date) as date
+FROM payment
+GROUP BY date
+ORDER BY date) a;
+
+
+
+SELECT
+first_name,
+last_name,
+staff_id,
+SUM(amount) as sum_amount,
+ROUND(SUM(amount) / FIRST_VALUE(SUM(amount)) OVER(PARTITION BY first_name, last_name 
+							  ORDER BY SUM(amount) DESC), 2) * 100 as percentage
+FROM payment as p
+JOIN customer as c
+ON c.customer_id = p.customer_id
+GROUP BY 
+	GROUPING SETS(
+		(first_name, last_name),
+		(first_name, last_name, staff_id)
+	)
+ORDER BY first_name, last_name;
+
+
+SELECT
+'Q' || TO_CHAR(payment_date, 'Q') as quarter,
+EXTRACT(month from payment_date) as month,
+DATE(payment_date),
+SUM(amount)
+FROM payment
+GROUP BY
+ROLLUP(
+	'Q' || TO_CHAR(payment_date, 'Q'),
+	EXTRACT(month from payment_date),
+	DATE(payment_date)
+);
+
+
+SELECT
+TO_CHAR(payment_date, 'Q') as quarter,
+EXTRACT(month from payment_date) as month,
+TO_CHAR(payment_date, 'W') as week_of_month,
+DATE(payment_date),
+SUM(amount) as booking_amount
+FROM payment
+GROUP BY
+ROLLUP(
+	TO_CHAR(payment_date, 'Q'),
+	EXTRACT(month from payment_date),
+	TO_CHAR(payment_date, 'W'),
+	DATE(payment_date)
+)
+ORDER BY quarter, month, week_of_month, DATE(payment_date);
+
+
+SELECT
+TO_CHAR(payment_date, 'Q') as quarter,
+EXTRACT(month from payment_date) as month,
+TO_CHAR(payment_date, 'W') as week_of_month,
+DATE(payment_date),
+SUM(amount) as booking_amount
+FROM payment
+GROUP BY
+ROLLUP(
+	TO_CHAR(payment_date, 'Q'),
+	EXTRACT(month from payment_date),
+	TO_CHAR(payment_date, 'W'),
+	DATE(payment_date)
+)
+ORDER BY quarter, month, week_of_month, DATE(payment_date);
+
+
+SELECT
+p.customer_id,
+DATE(payment_date),
+f.title,
+SUM(amount)
+FROM payment as p
+JOIN rental as r
+ON r.rental_id = p.rental_id
+JOIN inventory as i
+ON i.inventory_id = r.inventory_id
+JOIN film as f
+ON f.film_id = i.film_id
+GROUP BY
+CUBE(
+	p.customer_id,
+	DATE(payment_date),
+	f.title
+)
+ORDER BY 1,2,3;
+
+
+-- CREATE TABLE employee (
+-- 	employee_id INT,
+-- 	name VARCHAR (50),
+-- 	manager_id INT
+-- );
+
+-- INSERT INTO employee 
+-- VALUES
+-- 	(1, 'Liam Smith', NULL),
+-- 	(2, 'Oliver Brown', 1),
+-- 	(3, 'Elijah Jones', 1),
+-- 	(4, 'William Miller', 1),
+-- 	(5, 'James Davis', 2),
+-- 	(6, 'Olivia Hernandez', 2),
+-- 	(7, 'Emma Lopez', 2),
+-- 	(8, 'Sophia Andersen', 2),
+-- 	(9, 'Mia Lee', 3),
+-- 	(10, 'Ava Robinson', 3);
+
+SELECT * FROM employee;
+
+SELECT
+emp.employee_id,
+emp.name as employee,
+mng.name as manager,
+mng2.name as manager_of_manager
+FROM employee as emp
+LEFT JOIN employee as mng
+ON emp.manager_id = mng.employee_id
+LEFT JOIN employee as mng2
+ON mng.manager_id = mng2.employee_id
+ORDER BY emp.employee_id;
+
+
+SELECT
+f1.title,
+f2.title,
+f2.length
+FROM film f1
+JOIN film f2
+ON f1.length = f2.length
+WHERE f1.title != f2.title
+ORDER BY length DESC;
+
+
+
+SELECT * FROM employee;
+
+BEGIN;
+
+UPDATE employee
+SET position_title = 'Head of Sales'
+WHERE emp_id = 2;
+UPDATE employee
+SET position_title = 'Head of BI'
+WHERE emp_id = 3;
+UPDATE employee
+SET salary = 14614
+WHERE emp_id = 3;
+UPDATE employee
+SET salary = 12587
+WHERE emp_id = 2;
+
+COMMIT;
+
+
+
+-- CREATE TABLE acc_balance (
+--     id SERIAL PRIMARY KEY,
+--     first_name TEXT NOT NULL,
+-- 	last_name TEXT NOT NULL,
+--     amount DEC(9,2) NOT NULL    
+-- );
+
+-- INSERT INTO acc_balance
+-- VALUES 
+-- (1,'Tim','Brown',2500),
+-- (2,'Sandra','Miller',1600)
+
+
+CREATE OR REPLACE PROCEDURE sp_transfer(tr_amount INT, sender INT, recipient INT)
+LANGUAGE plpgsql
+AS
+$$
+BEGIN
+-- subtract amount
+UPDATE acc_balance
+SET amount = amount - tr_amount
+WHERE id = sender;
+-- add amount
+UPDATE acc_balance
+SET amount = amount + tr_amount
+WHERE id = recipient;
+COMMIT;
+END;
+$$
+
+CALL sp_transfer(500, 1,2);
+SELECT * FROM acc_balance;
+
+SELECT * FROM employee;
+
+CREATE OR REPLACE PROCEDURE emp_swap(emp1 INT, emp2 INT)
+LANGUAGE plpgsql
+AS
+$$
+DECLARE
+emp1_pos VARCHAR;
+emp2_pos VARCHAR;
+emp1_sal INT;
+emp2_sal INT;
+BEGIN
+
+SELECT salary
+INTO emp1_sal
+FROM employee
+WHERE emp_id = emp1;
+
+SELECT salary
+INTO emp2_sal
+FROM employee
+WHERE emp_id = emp2;
+
+SELECT position_title
+INTO emp1_pos
+FROM employee
+WHERE emp_id = emp1;
+
+SELECT position_title
+INTO emp2_pos
+FROM employee
+WHERE emp_id = emp2;
+
+-- take emp1 position and salary
+UPDATE employee
+SET position_title = emp2_pos
+WHERE emp_id = emp1;
+
+UPDATE employee
+SET salary = emp2_sal
+WHERE emp_id = emp1;
+
+-- take emp2 position and salary
+UPDATE employee
+SET position_title = emp1_pos
+WHERE emp_id = emp2;
+
+UPDATE employee
+SET salary = emp1_sal
+WHERE emp_id = emp2;
+
+COMMIT;
+END;
+$$
+
+CALL emp_swap(1,2);
+SELECT * FROM employee
+ORDER BY 1;
