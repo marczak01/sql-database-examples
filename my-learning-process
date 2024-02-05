@@ -18,6 +18,8 @@ ORDER BY f.film_id;
 
 
 
+
+
 -- This SQL query retrieves information about payments, 
 -- including all columns from payment table, 
 -- and the no of payments made by customer with specific amount.
@@ -26,6 +28,8 @@ SELECT
 *,
 COUNT(*) OVER(PARTITION BY customer_id, amount) AS no_payments_with_that_amount
 FROM payment;
+
+
 
 
 
@@ -43,12 +47,18 @@ FROM payment;
 
 
 
+
+
+-- This SQL query retrieves information about payments, 
+-- including columns; distinct name, country, no of payments made by customer in country 
+-- and rank column which represents the ranking of customers based on no of payments 
+
 SELECT * FROM
 (SELECT
 DISTINCT cl.name,
 cl.country,
-COUNT(*),
-RANK() OVER(PARTITION BY cl.country ORDER BY COUNT(*)) as rank
+COUNT(*) as no_of_payments_by_cust,
+RANK() OVER(PARTITION BY cl.country ORDER BY COUNT(*) DESC) as rank
 FROM customer_list as cl
 JOIN payment as p
 ON id=customer_id
@@ -59,11 +69,20 @@ ORDER BY rank;
 
 
 
+
+
+-- This SQL query retrieves information about payments,
+-- including all information from subquery 'a' and additional columns
+-- 'previous_day', 'diff_in_amount' and 'perc_growth'
+-- this query shows the difference between sum_amount 
+-- from prevoius day and the day after previous one.
+-- last column shows percentage growth from previous day and day after
+
 SELECT
 *,
 LAG(sum_amount) OVER(ORDER BY date) as previous_day,
-sum_amount - LAG(sum_amount) OVER(ORDER BY date),
-(LEAD(sum_amount) OVER(ORDER BY date) / sum_amount) * 100 as perc_growth
+sum_amount - LAG(sum_amount) OVER(ORDER BY date) as diff_in_amount,
+ROUND((LEAD(sum_amount) OVER(ORDER BY date) / sum_amount), 2) * 100 as perc_growth
 FROM
 (SELECT
 SUM(amount) as sum_amount,
